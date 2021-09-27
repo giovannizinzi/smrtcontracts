@@ -1,16 +1,22 @@
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
-    program_error::ProgramError,
     msg,
+    program_error::ProgramError,
+    program_pack::{IsInitialized, Pack},
     pubkey::Pubkey,
+    sysvar::{rent::Rent, Sysvar},
 };
 
-use crate::instruction::EscrowInstruction;
+use crate::{instruction::EscrowInstruction, error::EscrowError, state::Escrow};
 
 pub struct Processor;
 impl Processor {
-    pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult {
+    pub fn process(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        instruction_data: &[u8],
+    ) -> ProgramResult {
         let instruction = EscrowInstruction::unpack(instruction_data)?;
 
         match instruction {
@@ -38,7 +44,19 @@ impl Processor {
         if *token_to_receive_account.owner != spl_token::id() {
             return Err(ProgramError::IncorrectProgramId);
         }
+
+        let escrow_account = next_account_info(account_info_iter)?;
+        let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
+
+        if !rent.is_exempt(escrow_account.lamports(), escrow_account.data_len()) {
+            return Err(EscrowError::NotRentExempt.into());
+        }
+
+        let mut escrow_info = Escrow::unpack_unchecked(&escrow_account.data.borrow())?;
+        if escrow_info.is_initialized() {
+            return Err(ProgramError::AccountAlreadyInitialized);
+        }
+
         Ok(())
     }
-    
 }

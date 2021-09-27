@@ -43,3 +43,8 @@ impl EscrowInstruction {
         Ok(amount)
     }
 }
+
+// IMPORTANT NOTE
+// When writing Solana programs, be mindful of the fact that any accounts may be passed into the entrypoint, 
+// including different ones than those defined in the API inside instruction.rs. 
+// It's the program's responsibility to check that received accounts == expected accounts
